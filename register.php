@@ -22,8 +22,13 @@ connectDB();
 //set validation error flag as false
 $error = false;
 
-$captcha_sitekey = getenv('CAPTCHA_SITEKEY', true) ?: "REPLACE_ME";
-$captcha_secretkey = getenv('CAPTCHA_SECRETKEY', true) ?: "REPLACE_ME";
+// Use captcha or not
+$use_captcha = false;
+
+if($use_captcha == true) {
+  $captcha_sitekey = getenv('CAPTCHA_SITEKEY', true) ?: "REPLACE_ME";
+  $captcha_secretkey = getenv('CAPTCHA_SECRETKEY', true) ?: "REPLACE_ME";
+}
 
 //check if form is submitted
 if (isset($_POST['signup'])) {
@@ -51,48 +56,54 @@ if (isset($_POST['signup'])) {
 	}
 
 
-#    $image = new Securimage();
-#    if ($image->check($_POST['captcha_code']) != true) {
-#	   $error = true;
-#	   $captcha_error = "Captcha entry incorrect";
-#    }
+  if($use_captcha == true) {
+    #$image = new Securimage();
+    #if ($image->check($_POST['captcha_code']) != true) {
+    #  $error = true;
+    #  $captcha_error = "Captcha entry incorrect";
+    #}
 
+    ## validate
+    $curl = curl_init();
 
-## validate
-$curl = curl_init();
-
-// Configure options, incl. post-variables to send.
-curl_setopt_array($curl, array(
-    CURLOPT_RETURNTRANSFER => 1,
-    CURLOPT_URL => 'https://www.google.com/recaptcha/api/siteverify',
-    CURLOPT_POST => 1,
-    CURLOPT_POSTFIELDS => array(
+    // Configure options, incl. post-variables to send.
+    curl_setopt_array($curl, array(
+      CURLOPT_RETURNTRANSFER => 1,
+      CURLOPT_URL => 'https://www.google.com/recaptcha/api/siteverify',
+      CURLOPT_POST => 1,
+      CURLOPT_POSTFIELDS => array(
         'secret' => $captcha_secretkey,
         'response' => $_POST['g-recaptcha-response']
-    )
-));
+      )
+    ));
 
-// Send request. Due to CURLOPT_RETURNTRANSFER, this will return reply as string.
-$resp = curl_exec($curl);
+    // Send request. Due to CURLOPT_RETURNTRANSFER, this will return reply as string.
+    $resp = curl_exec($curl);
 
-// Free resources.
-curl_close($curl);
+    // Free resources.
+    curl_close($curl);
 
-// Validate response
-if(strpos($resp, '"success": true') !== FALSE) {
-#    echo "Verified.";
-		$qq = "INSERT INTO users(name,email,password,uuid) VALUES('" . $name . "', '" . $email . "', '" . md5($password) . "',uuid())	";
-#		print "Query: $qq";
-		if(mysqli_query($GLOBALS["___mysqli_ston"], $qq )) {
-			$successmsg = "<h2>Successfully Registered! <a href='login.php'>Click here to Login</a></h2>";
-		} else {
-			$errormsg = "Error in registering...Please try again later!";
-		}
-
-} else {
-    $errormsg = "Error in siteverify for recaptcha...Please contact the site admin!";
-}
-
+    // Validate response
+    if(strpos($resp, '"success": true') !== FALSE) {
+    #    echo "Verified.";
+      $qq = "INSERT INTO users(name,email,password,uuid) VALUES('" . $name . "', '" . $email . "', '" . md5($password) . "',uuid())	";
+    #		print "Query: $qq";
+      if(mysqli_query($GLOBALS["___mysqli_ston"], $qq )) {
+        $successmsg = "<h2>Successfully Registered! <a href='login.php'>Click here to Login</a></h2>";
+      } else {
+        $errormsg = "Error in registering...Please try again later!";
+      }
+    } else {
+      $errormsg = "Error in siteverify for recaptcha...Please contact the site admin!";
+    }
+  } else {
+    $qq = "INSERT INTO users(name,email,password,uuid) VALUES('" . $name . "', '" . $email . "', '" . md5($password) . "',uuid())	";
+    if(mysqli_query($GLOBALS["___mysqli_ston"], $qq )) {
+      $successmsg = "<h2>Successfully Registered! <a href='login.php'>Click here to Login</a></h2>";
+    } else {
+      $errormsg = "Error in registering...Please try again later!";
+    }
+  }
 }
 ?>
 
@@ -103,7 +114,11 @@ if(strpos($resp, '"success": true') !== FALSE) {
 	<meta content="width=device-width, initial-scale=1.0" name="viewport" >
 	<link rel="stylesheet" href="css/bootstrap.min.css" type="text/css" />
 	<link rel="stylesheet" type="text/css" href="https://overpass-30e2.kxcdn.com/overpass.css"/>
-   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<?php 
+  if($use_captcha == true) {
+        echo "<script src=\"https://www.google.com/recaptcha/api.js\" async defer></script>";
+  }
+?>
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -161,11 +176,18 @@ if(strpos($resp, '"success": true') !== FALSE) {
 						<input type="password" name="cpassword" placeholder="Confirm Password" required class="form-control" />
 						<span class="text-danger"><?php if (isset($cpassword_error)) echo $cpassword_error; ?></span>
 					</div>
-    <div>
-        <?php #echo Securimage::getCaptchaHtml() ?>
-        						<span class="text-danger"><?php if (isset($captcha_error)) echo "<br>$captcha_error"; ?></span>
-    </div>
-<div class="g-recaptcha" data-sitekey="<?php echo $captcha_sitekey; ?>"></div>
+<?php 
+  if($use_captcha == true) {
+    echo "<div>";
+    #echo Securimage::getCaptchaHtml()
+    echo "<span class=\"text-danger\">";
+    if (isset($captcha_error)) {
+      echo "<br>$captcha_error";
+    }
+    echo "</span> </div>";
+    echo "<div class=\"g-recaptcha\" data-sitekey=\"$captcha_sitekey\"></div>";
+  }
+?>
 					<div class="form-group">
 						<input type="submit" name="signup" value="Sign Up" class="btn btn-primary" />
 					</div>
